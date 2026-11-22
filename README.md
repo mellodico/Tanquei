@@ -140,3 +140,12 @@ No CI, `npm run test:db` precisa de `NEON_API_KEY` e `NEON_PROJECT_ID` (o projet
 ## Notas
 
 - Postos sem coordenadas aparecem só na lista, ordenados por último em "Mais perto".
+
+## Licença
+
+O código do Tanquei é distribuído sob a licença [MIT](LICENSE).
+
+A licença cobre apenas o código deste repositório. Os dados de preços vêm da API EconomizaAlagoas
+(SEFAZ-AL): para rodar o projeto, use seu próprio token e siga os termos de uso da SEFAZ.
+Os mapas usam tiles e dados do [OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL),
+com a atribuição exibida no mapa.
