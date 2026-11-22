@@ -1,53 +1,68 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
 import { Header } from "./components/header";
 import { GasStationCard } from "./components/gas-station-card";
-import { MapView } from "./components/map-view";
 import { Filters } from "./components/filters";
 import { Calculators } from "./components/calculators";
-import { PriceChart } from "./components/price-chart";
 import { Search, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { COMBUSTIVEL_TIPOS, getCombustivelStations, compareByDistance } from "../services/economiza";
 import { useGeolocation } from "../hooks/useGeolocation";
 import type { FilterType, GasStation } from "../types";
-import "leaflet/dist/leaflet.css";
 import { formatNumber } from "../utils/format";
 import { costScore, withHighlights } from "./components/highlights";
 import { FuelSelector, loadFuelType, saveFuelType } from "./components/fuel-selector";
+import { WhenVisible } from "./components/when-visible";
+
+// Leaflet e Recharts são as maiores dependências: carregados sob demanda, em pacotes separados.
+const MapView = lazy(() => import("./components/map-view").then((m) => ({ default: m.MapView })));
+const PriceChart = lazy(() => import("./components/price-chart").then((m) => ({ default: m.PriceChart })));
+
+function BlockPlaceholder({ label, className }: { label: string; className: string }) {
+  return (
+    <div className={`${className} rounded-2xl bg-white shadow-sm flex items-center justify-center text-muted-foreground`}>
+      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+      {label}
+    </div>
+  );
+}
 
 export default function App() {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
   const [tipoCombustivel, setTipoCombustivel] = useState(loadFuelType);
-  const [gasStations, setGasStations] = useState<GasStation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ key: string; stations: GasStation[]; error: string | null } | null>(
+    null,
+  );
 
   const { location, error: geoError, isFallback, isLoading: geoLoading } = useGeolocation();
 
+  // "Carregando" é derivado: o resultado guardado ainda não corresponde à busca atual.
+  const requestKey = location ? `${location.latitude}|${location.longitude}|${tipoCombustivel}` : null;
+  const isLoading = requestKey === null || result?.key !== requestKey;
+  const gasStations = useMemo(() => (isLoading ? [] : result!.stations), [isLoading, result]);
+  const error = isLoading ? null : result!.error;
+
   useEffect(() => {
-    if (!location) return;
+    if (!location || !requestKey) return;
     const controller = new AbortController();
 
-    setIsLoading(true);
-    setError(null);
     getCombustivelStations(
       { latitude: location.latitude, longitude: location.longitude, tipoCombustivel },
       controller.signal,
     )
-      .then((stations) => setGasStations(stations))
+      .then((stations) => setResult({ key: requestKey, stations, error: null }))
       .catch((err) => {
         if (controller.signal.aborted) return;
         console.error("Erro ao carregar postos:", err);
-        setGasStations([]);
-        setError(err instanceof Error ? err.message : "Erro ao carregar postos");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        setResult({
+          key: requestKey,
+          stations: [],
+          error: err instanceof Error ? err.message : "Erro ao carregar postos",
+        });
       });
 
     return () => controller.abort();
-  }, [location, tipoCombustivel]);
+  }, [location, tipoCombustivel, requestKey]);
 
   const handleFuelChange = useCallback((tipo: number) => {
     setTipoCombustivel(tipo);
@@ -194,13 +209,15 @@ export default function App() {
               </div>
 
               <div className="lg:sticky lg:top-32 h-[600px]">
-                <MapView
-                  stations={visibleStations}
-                  userLocation={[location.latitude, location.longitude]}
-                  isFallbackLocation={isFallback}
-                  selectedStationId={selectedStation}
-                  onStationSelect={handleStationSelect}
-                />
+                <Suspense fallback={<BlockPlaceholder label="Carregando mapa..." className="h-full" />}>
+                  <MapView
+                    stations={visibleStations}
+                    userLocation={[location.latitude, location.longitude]}
+                    isFallbackLocation={isFallback}
+                    selectedStationId={selectedStation}
+                    onStationSelect={handleStationSelect}
+                  />
+                </Suspense>
               </div>
             </div>
 
@@ -209,13 +226,15 @@ export default function App() {
             </div>
 
             {regiao && (
-              <div>
-                <PriceChart
-                  codigoIBGE={regiao.codigoIBGE}
-                  municipio={regiao.municipio}
-                  tipoCombustivel={tipoCombustivel}
-                />
-              </div>
+              <WhenVisible id="graficos" placeholder={<BlockPlaceholder label="Carregando gráfico..." className="h-[480px]" />}>
+                <Suspense fallback={<BlockPlaceholder label="Carregando gráfico..." className="h-[480px]" />}>
+                  <PriceChart
+                    codigoIBGE={regiao.codigoIBGE}
+                    municipio={regiao.municipio}
+                    tipoCombustivel={tipoCombustivel}
+                  />
+                </Suspense>
+              </WhenVisible>
             )}
           </>
         )}

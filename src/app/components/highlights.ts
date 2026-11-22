@@ -1,5 +1,3 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { DollarSign, Navigation2, TrendingDown, type LucideIcon } from "lucide-react";
 import type { GasStation, HighlightKind } from "../../types";
 
@@ -18,25 +16,8 @@ export const HIGHLIGHTS: HighlightStyle[] = [
   { kind: "mais-perto", label: "Mais perto", color: "#0D9488", icon: Navigation2 },
 ];
 
-export function highlightStyle(kind: HighlightKind): HighlightStyle {
-  return HIGHLIGHTS.find((h) => h.kind === kind)!;
-}
-
 export function stationHighlights(station: GasStation): HighlightStyle[] {
   return HIGHLIGHTS.filter((h) => station.highlights?.includes(h.kind));
-}
-
-const svgCache = new Map<string, string>();
-
-/** SVG do ícone como string, para uso em HTML do Leaflet */
-export function iconSvg(icon: LucideIcon, size: number, color = "white"): string {
-  const key = `${icon.displayName}-${size}-${color}`;
-  let svg = svgCache.get(key);
-  if (!svg) {
-    svg = renderToStaticMarkup(createElement(icon, { size, color, strokeWidth: 2.5 }));
-    svgCache.set(key, svg);
-  }
-  return svg;
 }
 
 /** Custo-benefício: preço penalizado em 10% por km. Sem distância conhecida → Infinity. */

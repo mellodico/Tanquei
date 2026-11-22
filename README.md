@@ -48,7 +48,8 @@ Acesse `http://localhost:5173`. Em dev, o Vite faz proxy de `/api` para `http://
 |------|--------|-----------|
 | raiz | `npm run dev` / `build` / `preview` | Vite (o `build` roda o typecheck antes) |
 | raiz | `npm run typecheck` | `tsc --noEmit` |
-| raiz | `npm test` | Testes (Vitest) do mapeamento da API |
+| raiz | `npm run lint` | ESLint no frontend e no servidor |
+| raiz | `npm test` | Testes do frontend (Vitest, só `src/`) |
 | server | `npm run dev` | Backend com reload |
 | server | `npm run build` + `npm start` | Compila para `dist/` e executa |
 | server | `npm test` | Testes de unidade (os de banco são pulados) |
@@ -73,7 +74,8 @@ Acesse `http://localhost:5173`. Em dev, o Vite faz proxy de `/api` para `http://
   - Resposta: `{ totalRegistros, conteudo: CombustivelItem[] }`
 - `GET /api/economiza/historico?codigoIBGE=2704302&tipoCombustivel=1&dias=30`
   - Série diária `{ data, media, minimo, maximo, postos }` do município
-- `GET /health`
+- `GET /health`: o processo está no ar (não consulta o banco; use no monitoramento)
+- `GET /health/ready`: confere o banco (`503` se indisponível)
 - Buscas ficam em cache por `CACHE_TTL_MINUTES` (padrão 10). As coordenadas são arredondadas para
   ~1 km, então usuários próximos reaproveitam a mesma consulta (a SEFAZ leva de 5 a 9 s por página).
   O cabeçalho `X-Cache` indica `HIT` ou `MISS`
@@ -146,7 +148,27 @@ Fluxo para mudar o esquema:
 4. `neon diff` para revisar a diferença de esquema entre `dev` e `main`
 5. No deploy: `npm run migrate` com o `DATABASE_URL` de produção **antes** de `npm start`
 
-No CI, `npm run test:db` precisa de `NEON_API_KEY` e `NEON_PROJECT_ID` (o projeto é `noisy-glade-62015002`).
+## CI
+
+`.github/workflows/ci.yml` roda em cada push na `main` e em cada PR:
+
+| Job | O que faz |
+|-----|-----------|
+| Frontend | lint, typecheck, testes e build |
+| Servidor | typecheck, testes de unidade, build e build da imagem Docker |
+| Banco | `npm run test:db` numa branch descartável do Neon (só em PRs) |
+
+O job de banco precisa, em *Settings → Secrets and variables → Actions* do repositório:
+
+- secret `NEON_API_KEY` (crie em console.neon.tech → Account settings → API keys)
+- variável `NEON_PROJECT_ID` = `noisy-glade-62015002`
+
+Sem eles (ou em PRs de forks, que não recebem secrets), o job é pulado com um aviso.
+
+## Deploy
+
+Veja [docs/DEPLOY.md](docs/DEPLOY.md): hospedagem, variáveis de produção, migrations como passo
+de release, health checks e publicação do frontend.
 
 ## Notas
 

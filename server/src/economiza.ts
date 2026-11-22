@@ -17,6 +17,14 @@ export interface CombustivelItem {
   };
 }
 
+/** Página da pesquisa de combustíveis (campos opcionais: a API não é confiável quanto a eles). */
+interface PaginaCombustivel {
+  totalRegistros?: number;
+  totalPaginas?: number;
+  ultimaPagina?: boolean;
+  conteudo?: unknown;
+}
+
 export type EstabelecimentoFiltro =
   | { geolocalizacao: { latitude: number; longitude: number; raio: number } }
   | { municipio: { codigoIBGE: number } };
@@ -25,7 +33,7 @@ const REGISTROS_POR_PAGINA = 100; // a API aceita até ~100; valores pequenos (e
 const MAX_PAGINAS = 5;
 
 export function createEconomizaClient({ baseUrl, token, log }: EconomizaConfig) {
-  async function post(path: string, body: unknown): Promise<any> {
+  async function post(path: string, body: unknown): Promise<unknown> {
     const started = Date.now();
     const res = await fetch(`${baseUrl}${path}`, {
       method: "POST",
@@ -56,15 +64,15 @@ export function createEconomizaClient({ baseUrl, token, log }: EconomizaConfig) 
     const conteudo: CombustivelItem[] = [];
     let totalRegistros = 0;
     for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-      const data = await post("/combustivel/pesquisa", {
+      const data = (await post("/combustivel/pesquisa", {
         produto: { tipoCombustivel: params.tipoCombustivel },
         estabelecimento: params.estabelecimento,
         dias: params.dias,
         pagina,
         registrosPorPagina: REGISTROS_POR_PAGINA,
-      });
+      })) as PaginaCombustivel | null;
       totalRegistros = data?.totalRegistros ?? 0;
-      if (Array.isArray(data?.conteudo)) conteudo.push(...data.conteudo);
+      if (Array.isArray(data?.conteudo)) conteudo.push(...(data.conteudo as CombustivelItem[]));
       if (data?.ultimaPagina !== false || pagina >= (data?.totalPaginas ?? 1)) break;
     }
     return { totalRegistros, conteudo };

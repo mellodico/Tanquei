@@ -8,6 +8,7 @@ import { HistoryStore } from "./history";
 import { createPool } from "./db/pool";
 import { assertMigrated } from "./db/migrations";
 import { TtlCache, parseTrustProxy, roundCoord } from "./cache";
+import { originMatcher, parseOrigins } from "./cors";
 
 dotenv.config();
 
@@ -21,11 +22,9 @@ if (!TOKEN) throw new Error("ECONOMIZA_APP_TOKEN não definido");
 const DATABASE_URL = process.env.DATABASE_URL ?? "";
 if (!DATABASE_URL) throw new Error("DATABASE_URL não definido (string de conexão pooled do Neon)");
 
-// Origens permitidas (separadas por vírgula). Em dev, o Vite faz proxy e a origem é a mesma.
-const allowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+// Origens permitidas (separadas por vírgula, aceita "*"; ver cors.ts). Em dev, o Vite faz proxy.
+const allowedOrigins = parseOrigins(process.env.CORS_ORIGINS);
+const isAllowedOrigin = originMatcher(allowedOrigins);
 
 const HISTORY_MUNICIPIOS = (process.env.HISTORY_MUNICIPIOS ?? "2704302") // Maceió
   .split(",")
@@ -51,7 +50,7 @@ const buscaCache = new TtlCache<Awaited<ReturnType<typeof economiza.pesquisarCom
 const app = express();
 app.set("trust proxy", TRUST_PROXY);
 app.use(helmet());
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: (origin, cb) => cb(null, !origin || isAllowedOrigin(origin)) }));
 app.use(express.json({ limit: "10kb" }));
 app.use(
   rateLimit({
@@ -62,8 +61,30 @@ app.use(
   }),
 );
 
+// Liveness: não toca no banco. É a rota para o monitoramento frequente da hospedagem; consultar
+// o banco a cada poucos segundos impediria o Neon de desligar a computação ociosa (scale to zero).
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Readiness: confere o banco. Para checagens manuais ou pouco frequentes.
+app.get("/health/ready", async (_req, res) => {
+  const started = Date.now();
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      pool.query("SELECT 1"),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), 10_000);
+      }),
+    ]);
+    res.json({ status: "ok", database: "ok", latencyMs: Date.now() - started });
+  } catch (e) {
+    console.error("Health: banco indisponível:", (e as Error).message);
+    res.status(503).json({ status: "error", database: "unavailable" });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 function num(v: unknown, min: number, max: number, fallback?: number): number | null {

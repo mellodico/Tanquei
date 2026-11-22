@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Navigation2 } from "lucide-react";
-import { iconSvg, withHighlights } from "./highlights";
+import { withHighlights } from "./highlights";
+import { iconSvg } from "./icon-svg";
 import type { GasStation } from "../../types";
 
 const mk = (id: string, price: number, distance: number | null) =>

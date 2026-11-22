@@ -5,7 +5,8 @@ import "leaflet/dist/leaflet.css";
 import type { GasStation } from "../../types";
 import { directionsUrl } from "../../utils/geo";
 import { formatNumber, formatRelativeTime, isStale } from "../../utils/format";
-import { HIGHLIGHTS, iconSvg, stationHighlights } from "./highlights";
+import { HIGHLIGHTS, stationHighlights } from "./highlights";
+import { iconSvg } from "./icon-svg";
 
 interface MapViewProps {
   stations: GasStation[];
@@ -200,12 +201,13 @@ export function MapView({
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     mapRef.current = map;
+    const markers = markersRef.current;
 
     return () => {
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
-      markersRef.current.clear();
+      markers.clear();
     };
   }, []);
 

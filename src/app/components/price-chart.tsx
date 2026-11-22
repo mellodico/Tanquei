@@ -66,26 +66,31 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
 
 export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: PriceChartProps) {
   const [dias, setDias] = useState<(typeof PERIODOS)[number]>(30);
-  const [historico, setHistorico] = useState<HistoricoResposta | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    key: string;
+    historico: HistoricoResposta | null;
+    error: string | null;
+  } | null>(null);
+
+  const requestKey = `${codigoIBGE}|${tipoCombustivel}|${dias}`;
+  const isLoading = result?.key !== requestKey;
+  const historico = isLoading ? null : result.historico;
+  const error = isLoading ? null : result.error;
 
   useEffect(() => {
     const controller = new AbortController();
-    setIsLoading(true);
-    setError(null);
     getHistoricoPrecos({ codigoIBGE, tipoCombustivel, dias }, controller.signal)
-      .then(setHistorico)
+      .then((h) => setResult({ key: requestKey, historico: h, error: null }))
       .catch((err) => {
         if (controller.signal.aborted) return;
-        setHistorico(null);
-        setError(err instanceof Error ? err.message : "Erro ao carregar histórico");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        setResult({
+          key: requestKey,
+          historico: null,
+          error: err instanceof Error ? err.message : "Erro ao carregar histórico",
+        });
       });
     return () => controller.abort();
-  }, [codigoIBGE, tipoCombustivel, dias]);
+  }, [codigoIBGE, tipoCombustivel, dias, requestKey]);
 
   const serie = historico?.serie ?? [];
   const ultimo = serie[serie.length - 1];
@@ -96,7 +101,7 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
   const combustivel = COMBUSTIVEL_TIPOS[tipoCombustivel] ?? "Combustível";
 
   return (
-    <div id="graficos" className="bg-white rounded-2xl p-6 shadow-sm">
+    <div className="bg-white rounded-2xl p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">
