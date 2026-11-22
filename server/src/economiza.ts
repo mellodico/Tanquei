@@ -1,0 +1,76 @@
+export class UpstreamError extends Error {}
+
+export interface EconomizaConfig {
+  baseUrl: string;
+  token: string;
+  log: (...args: unknown[]) => void;
+}
+
+/** Item de `conteudo[]` (só os campos que o servidor usa). */
+export interface CombustivelItem {
+  produto?: { venda?: { dataVenda?: string; valorVenda?: number } };
+  estabelecimento?: {
+    cnpj?: string;
+    nomeFantasia?: string;
+    razaoSocial?: string;
+    endereco?: { codigoIBGE?: number; municipio?: string };
+  };
+}
+
+export type EstabelecimentoFiltro =
+  | { geolocalizacao: { latitude: number; longitude: number; raio: number } }
+  | { municipio: { codigoIBGE: number } };
+
+const REGISTROS_POR_PAGINA = 100; // a API aceita até ~100; valores pequenos (ex.: 10) são rejeitados
+const MAX_PAGINAS = 5;
+
+export function createEconomizaClient({ baseUrl, token, log }: EconomizaConfig) {
+  async function post(path: string, body: unknown): Promise<any> {
+    const started = Date.now();
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", AppToken: token },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = await res.text();
+    log(`POST ${path} -> ${res.status} (${Date.now() - started}ms)`);
+
+    if (!res.ok) {
+      // Detalhes só no log do servidor; o cliente recebe mensagem genérica.
+      console.error(`Upstream ${path} ${res.status}: ${text.slice(0, 300)}`);
+      throw new UpstreamError(`HTTP ${res.status}`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new UpstreamError("Resposta inválida da API");
+    }
+  }
+
+  async function pesquisarCombustiveis(params: {
+    tipoCombustivel: number;
+    estabelecimento: EstabelecimentoFiltro;
+    dias: number;
+  }): Promise<{ totalRegistros: number; conteudo: CombustivelItem[] }> {
+    const conteudo: CombustivelItem[] = [];
+    let totalRegistros = 0;
+    for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+      const data = await post("/combustivel/pesquisa", {
+        produto: { tipoCombustivel: params.tipoCombustivel },
+        estabelecimento: params.estabelecimento,
+        dias: params.dias,
+        pagina,
+        registrosPorPagina: REGISTROS_POR_PAGINA,
+      });
+      totalRegistros = data?.totalRegistros ?? 0;
+      if (Array.isArray(data?.conteudo)) conteudo.push(...data.conteudo);
+      if (data?.ultimaPagina !== false || pagina >= (data?.totalPaginas ?? 1)) break;
+    }
+    return { totalRegistros, conteudo };
+  }
+
+  return { pesquisarCombustiveis };
+}
+
+export type EconomizaClient = ReturnType<typeof createEconomizaClient>;
