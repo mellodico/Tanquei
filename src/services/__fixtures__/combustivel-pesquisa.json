@@ -1,0 +1,61 @@
+{
+  "totalRegistros": 2,
+  "conteudo": [
+    {
+      "produto": {
+        "codigo": "1000",
+        "descricao": "GASOLINA COMUM",
+        "unidadeMedida": "L",
+        "venda": {
+          "dataVenda": "2026-11-22T13:00:50Z",
+          "valorDeclarado": 6.58,
+          "valorVenda": 5.907894736842105
+        }
+      },
+      "estabelecimento": {
+        "cnpj": "20528778000185",
+        "razaoSocial": "AUTO POSTO NICAULA LTDA",
+        "nomeFantasia": "AUTO POSTO NICAULA",
+        "telefone": "(82) 33286434",
+        "endereco": {
+          "nomeLogradouro": "AV GOVERNADOR LAMENHA FILHO",
+          "numeroImovel": "1880",
+          "bairro": "FEITOSA",
+          "cep": "57043000",
+          "codigoIBGE": 2704302,
+          "municipio": "MACEIO",
+          "latitude": -9.630064299999999,
+          "longitude": -35.7248617
+        }
+      }
+    },
+    {
+      "produto": {
+        "codigo": "1",
+        "descricao": "GASOLINA COMUM Bico 13",
+        "unidadeMedida": "L",
+        "venda": {
+          "dataVenda": "2026-11-22T12:35:34Z",
+          "valorDeclarado": 6.58,
+          "valorVenda": 6.4797999736807474
+        }
+      },
+      "estabelecimento": {
+        "cnpj": "24586803000138",
+        "razaoSocial": "AUTO POSTO LAGOA LTDA - EPP",
+        "nomeFantasia": "POSTO LAGOA",
+        "telefone": "(82) 98715046",
+        "endereco": {
+          "nomeLogradouro": "AV SENADOR RUI PALMEIRA",
+          "numeroImovel": "103",
+          "bairro": "LEVADA",
+          "cep": "57017175",
+          "codigoIBGE": 2704302,
+          "municipio": "MACEIO",
+          "latitude": -9.677050999999999,
+          "longitude": -35.7603523
+        }
+      }
+    }
+  ]
+}
