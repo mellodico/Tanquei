@@ -45,7 +45,8 @@ async function main() {
               municipio: json.municipios[ibge] ?? null,
               nomeFantasia: null,
               razaoSocial: null,
-              preco,
+              precoBomba: null,
+              precoVenda: preco,
               vendidoEm: `${data}T00:00:00-03:00`,
             });
           }

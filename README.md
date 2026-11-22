@@ -21,6 +21,8 @@ ECONOMIZA_BASE_URL=http://api.sefaz.al.gov.br/sfz-economiza-alagoas-api/api/publ
 PORT=3333
 NODE_ENV=development
 CORS_ORIGINS=http://localhost:5173
+TRUST_PROXY=
+CACHE_TTL_MINUTES=10
 DATABASE_URL=postgresql://...-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=verify-full
 HISTORY_MUNICIPIOS=2704302
 HISTORY_INTERVAL_HOURS=6
@@ -72,6 +74,10 @@ Acesse `http://localhost:5173`. Em dev, o Vite faz proxy de `/api` para `http://
 - `GET /api/economiza/historico?codigoIBGE=2704302&tipoCombustivel=1&dias=30`
   - Série diária `{ data, media, minimo, maximo, postos }` do município
 - `GET /health`
+- Buscas ficam em cache por `CACHE_TTL_MINUTES` (padrão 10). As coordenadas são arredondadas para
+  ~1 km, então usuários próximos reaproveitam a mesma consulta (a SEFAZ leva de 5 a 9 s por página).
+  O cabeçalho `X-Cache` indica `HIT` ou `MISS`
+- Atrás de proxy reverso, defina `TRUST_PROXY` (ex.: `1`) para o rate limit identificar cada usuário
 - O token nunca sai do servidor; o cliente não consegue enviar corpos arbitrários para a SEFAZ
 - CORS restrito a `CORS_ORIGINS`; rate limit de 60 req/min por IP
 
@@ -88,7 +94,10 @@ Acesse `http://localhost:5173`. Em dev, o Vite faz proxy de `/api` para `http://
 
 ### Formato da resposta da SEFAZ (resumo)
 
-- Preço: `produto.venda.valorVenda`
+- Preço da bomba: `produto.venda.valorDeclarado`. É o preço exibido no app e usado no histórico
+- Valor da última venda: `produto.venda.valorVenda`. Costuma ser igual ao da bomba, mas pode ser
+  menor (desconto naquela venda); o app mostra os dois quando diferem
+- Data da última venda: `produto.venda.dataVenda` (pode ter até `dias` dias; o app avisa quando passa de 24 h)
 - Endereço e coordenadas: `estabelecimento.endereco.{nomeLogradouro, numeroImovel, bairro, municipio, latitude, longitude}`
 - Paginação: `registrosPorPagina` pequeno (ex.: 10) é rejeitado com HTTP 400; o backend usa 100
 
@@ -100,6 +109,8 @@ Por isso o backend monta o histórico:
 - Ao iniciar e a cada `HISTORY_INTERVAL_HOURS` horas, coleta os 6 combustíveis dos municípios
   em `HISTORY_MUNICIPIOS` (códigos IBGE; padrão Maceió). As buscas dos usuários também são registradas.
 - Guarda, por dia, o último preço de cada posto no Postgres (Neon, projeto `tanquei`, região `aws-sa-east-1`).
+  São guardados o preço da bomba (`preco_bomba`) e o da venda (`preco_venda`); a série usa o da bomba e,
+  em registros antigos sem ele, o da venda.
 - Tabelas (ver `server/migrations/`): `municipios`, `postos` e `precos_diarios`
   (chave: data + tipo de combustível + CNPJ; só é substituído por uma venda mais recente).
 - Dias com menos de 30% dos postos do período são omitidos para não distorcer a média.

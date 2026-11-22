@@ -1,8 +1,8 @@
-import { MapPin, Navigation } from "lucide-react";
+import { Clock, MapPin, Navigation } from "lucide-react";
 import { stationHighlights } from "./highlights";
 import type { GasStation } from "../../types";
 import { directionsUrl } from "../../utils/geo";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, formatRelativeTime, isStale } from "../../utils/format";
 
 interface GasStationCardProps {
   station: GasStation;
@@ -66,6 +66,23 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
             </span>
             <span className="text-xs text-muted-foreground">/L</span>
           </div>
+          {station.salePrice !== null && (
+            <p className="text-xs text-muted-foreground" title="Valor efetivo da última venda registrada">
+              Última venda: R$ {formatNumber(station.salePrice)}
+            </p>
+          )}
+          {station.updatedAt && (
+            <p
+              className={`flex items-center gap-1 text-xs mt-1 ${
+                isStale(station.updatedAt) ? "text-amber-700" : "text-muted-foreground"
+              }`}
+              title={new Date(station.updatedAt).toLocaleString("pt-BR")}
+            >
+              <Clock className="h-3 w-3" />
+              Atualizado {formatRelativeTime(station.updatedAt)}
+              {isStale(station.updatedAt) && " · pode ter mudado"}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col items-end gap-2">

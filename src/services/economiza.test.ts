@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fixture from "./__fixtures__/combustivel-pesquisa.json";
 import {
   compareByDistance,
+  uniqueStations,
   getCombustivelStations,
   mapCombustivelItem,
 } from "./economiza";
@@ -13,8 +14,27 @@ const data = fixture as CombustiveisResponse;
 describe("mapCombustivelItem (resposta real da API)", () => {
   const station = mapCombustivelItem(data.conteudo[0]!, 0, MACEIO, 1);
 
-  it("lê preço de produto.venda.valorVenda", () => {
-    expect(station.price).toBeCloseTo(5.9079, 3);
+  it("usa o preço da bomba (valorDeclarado) e guarda a última venda com desconto à parte", () => {
+    expect(station.price).toBe(6.58);
+    expect(station.salePrice).toBeCloseTo(5.9079, 3);
+    expect(station.updatedAt).toBe("2026-11-22T13:00:50Z");
+  });
+
+  it("não marca última venda quando a diferença é só arredondamento", () => {
+    const s = mapCombustivelItem(
+      { produto: { venda: { valorDeclarado: 6.59, valorVenda: 6.58963 } } },
+      0,
+      MACEIO,
+      1,
+    );
+    expect(s.salePrice).toBeNull();
+  });
+
+  it("sem preço da bomba, usa o valor da venda", () => {
+    const s = mapCombustivelItem({ produto: { venda: { valorVenda: 6.1 } } }, 0, MACEIO, 1);
+    expect(s.price).toBe(6.1);
+    expect(s.salePrice).toBeNull();
+    expect(s.updatedAt).toBeNull();
   });
 
   it("monta o endereço a partir do objeto endereco", () => {
@@ -38,6 +58,23 @@ describe("mapCombustivelItem (resposta real da API)", () => {
     const s = mapCombustivelItem({ estabelecimento: { cnpj: "1", endereco: {} } }, 0, MACEIO, 1);
     expect(s.position).toBeNull();
     expect(s.distance).toBeNull();
+  });
+});
+
+describe("uniqueStations", () => {
+  const mk = (id: string, price: number) => ({ id, price }) as GasStation;
+
+  it("deixa um posto por CNPJ, o mais barato", () => {
+    const out = uniqueStations([mk("TIGRE", 9.59), mk("OUTRO", 6.5), mk("TIGRE", 6.99)]);
+    expect(out.map((s) => [s.id, s.price])).toEqual([
+      ["TIGRE", 6.99],
+      ["OUTRO", 6.5],
+    ]);
+  });
+
+  it("prefere um preço válido a preço zero", () => {
+    expect(uniqueStations([mk("A", 0), mk("A", 6.1)])[0]!.price).toBe(6.1);
+    expect(uniqueStations([mk("A", 6.1), mk("A", 0)])[0]!.price).toBe(6.1);
   });
 });
 
@@ -65,6 +102,18 @@ describe("getCombustivelStations", () => {
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({ ...MACEIO, tipoCombustivel: 1 });
     expect(stations).toHaveLength(2);
     expect(stations[0]!.distance!).toBeLessThanOrEqual(stations[1]!.distance!);
+  });
+
+  it("não devolve o mesmo posto duas vezes (um item por produto na API)", async () => {
+    const tigre = (descricao: string, bomba: number) => ({
+      produto: { descricao, venda: { valorDeclarado: bomba, valorVenda: bomba, dataVenda: "2026-11-22T15:00:00Z" } },
+      estabelecimento: { cnpj: "TIGRE", nomeFantasia: "POSTO TIGRE", endereco: { latitude: -9.66, longitude: -35.71 } },
+    });
+    const body = { totalRegistros: 2, conteudo: [tigre("GASOLINA C PREMIUM ADITIVADA", 9.59), tigre("GASOLINA ADITIVADA", 6.99)] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })));
+
+    const stations = await getCombustivelStations({ ...MACEIO, tipoCombustivel: 2 });
+    expect(stations.map((s) => [s.id, s.price])).toEqual([["TIGRE", 6.99]]);
   });
 
   it("propaga erros do backend em vez de retornar lista vazia", async () => {

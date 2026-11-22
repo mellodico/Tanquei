@@ -7,6 +7,7 @@ import { createEconomizaClient } from "./economiza";
 import { HistoryStore } from "./history";
 import { createPool } from "./db/pool";
 import { assertMigrated } from "./db/migrations";
+import { TtlCache, parseTrustProxy, roundCoord } from "./cache";
 
 dotenv.config();
 
@@ -32,6 +33,9 @@ const HISTORY_MUNICIPIOS = (process.env.HISTORY_MUNICIPIOS ?? "2704302") // Mace
   .filter((n) => Number.isInteger(n) && n > 0);
 const HISTORY_INTERVAL_HOURS = Number(process.env.HISTORY_INTERVAL_HOURS ?? 6);
 const TIPOS_COMBUSTIVEL = [1, 2, 3, 4, 5, 6];
+const CACHE_TTL_MINUTES = Number(process.env.CACHE_TTL_MINUTES ?? 10);
+// Atrás de um proxy reverso, sem isso todos os usuários teriam o IP do proxy e dividiriam o rate limit.
+const TRUST_PROXY = parseTrustProxy(process.env.TRUST_PROXY);
 
 function log(...args: unknown[]) {
   if (isDev) console.log(...args);
@@ -40,8 +44,12 @@ function log(...args: unknown[]) {
 const economiza = createEconomizaClient({ baseUrl: BASE, token: TOKEN, log });
 const pool = createPool(DATABASE_URL);
 const history = new HistoryStore(pool);
+const buscaCache = new TtlCache<Awaited<ReturnType<typeof economiza.pesquisarCombustiveis>>>(
+  CACHE_TTL_MINUTES * 60_000,
+);
 
 const app = express();
+app.set("trust proxy", TRUST_PROXY);
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "10kb" }));
@@ -86,17 +94,25 @@ app.post("/api/economiza/combustiveis", async (req, res) => {
     return;
   }
 
+  const lat = roundCoord(latitude);
+  const lon = roundCoord(longitude);
   try {
-    const data = await economiza.pesquisarCombustiveis({
-      tipoCombustivel,
-      estabelecimento: { geolocalizacao: { latitude, longitude, raio } },
-      dias,
-    });
-    res.json(data);
-    // Buscas dos usuários também alimentam o histórico (sem atrasar a resposta)
-    history
-      .record(tipoCombustivel, data.conteudo)
-      .catch((e) => console.error("Histórico: falha ao gravar busca:", (e as Error).message));
+    const { value: data, hit } = await buscaCache.getOrLoad(
+      `${lat}|${lon}|${raio}|${tipoCombustivel}|${dias}`,
+      () =>
+        economiza.pesquisarCombustiveis({
+          tipoCombustivel,
+          estabelecimento: { geolocalizacao: { latitude: lat, longitude: lon, raio } },
+          dias,
+        }),
+    );
+    res.set("X-Cache", hit ? "HIT" : "MISS").json(data);
+    if (!hit) {
+      // Buscas dos usuários também alimentam o histórico (sem atrasar a resposta)
+      history
+        .record(tipoCombustivel, data.conteudo)
+        .catch((e) => console.error("Histórico: falha ao gravar busca:", (e as Error).message));
+    }
   } catch (e) {
     console.error("Erro ao buscar combustíveis:", (e as Error).message);
     res.status(502).json({ error: "Falha ao consultar a API EconomizaAlagoas. Tente novamente." });
@@ -151,6 +167,7 @@ async function main() {
     console.log(`Server running on port ${PORT}`);
     log(`Base URL: ${BASE}`);
     log(`CORS origins: ${allowedOrigins.join(", ")}`);
+    log(`Cache de buscas: ${CACHE_TTL_MINUTES} min · trust proxy: ${JSON.stringify(TRUST_PROXY)}`);
     log(`Histórico: Postgres (municípios ${HISTORY_MUNICIPIOS.join(", ")}, a cada ${HISTORY_INTERVAL_HOURS}h)`);
   });
 

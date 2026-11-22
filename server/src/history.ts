@@ -33,7 +33,9 @@ export interface PrecoRow {
   municipio: string | null;
   nomeFantasia: string | null;
   razaoSocial: string | null;
-  preco: number;
+  /** valorDeclarado da API; null quando não informado */
+  precoBomba: number | null;
+  precoVenda: number;
   vendidoEm: string;
 }
 
@@ -54,8 +56,9 @@ export function dataLocal(iso: string | Date): string | null {
 }
 
 /**
- * Converte itens da API em linhas válidas. Se o mesmo posto aparecer mais de uma vez
- * no mesmo dia, fica a venda mais recente.
+ * Converte itens da API em linhas válidas. A API devolve um item por produto, então um posto
+ * pode aparecer mais de uma vez no mesmo tipo (ex.: aditivada comum e premium): fica o
+ * produto mais barato; em empate de preço, a venda mais recente.
  */
 export function toRows(items: CombustivelItem[]): PrecoRow[] {
   const rows = new Map<string, PrecoRow>();
@@ -63,14 +66,19 @@ export function toRows(items: CombustivelItem[]): PrecoRow[] {
     const est = item.estabelecimento;
     const cnpj = est?.cnpj;
     const ibge = est?.endereco?.codigoIBGE;
-    const preco = item.produto?.venda?.valorVenda;
+    const precoBomba = positivo(item.produto?.venda?.valorDeclarado);
+    const precoVenda = positivo(item.produto?.venda?.valorVenda) ?? precoBomba;
     const vendidoEm = item.produto?.venda?.dataVenda;
     const data = vendidoEm ? dataLocal(vendidoEm) : null;
-    if (!cnpj || typeof ibge !== "number" || typeof preco !== "number" || !(preco > 0) || !data) continue;
+    if (!cnpj || typeof ibge !== "number" || precoVenda === null || !data) continue;
 
     const key = `${data}|${cnpj}`;
     const prev = rows.get(key);
-    if (prev && prev.vendidoEm >= vendidoEm!) continue;
+    if (prev) {
+      const preco = precoBomba ?? precoVenda;
+      const precoAnterior = prev.precoBomba ?? prev.precoVenda;
+      if (preco > precoAnterior || (preco === precoAnterior && prev.vendidoEm >= vendidoEm!)) continue;
+    }
     rows.set(key, {
       data,
       cnpj,
@@ -78,11 +86,16 @@ export function toRows(items: CombustivelItem[]): PrecoRow[] {
       municipio: est?.endereco?.municipio ?? null,
       nomeFantasia: est?.nomeFantasia ?? null,
       razaoSocial: est?.razaoSocial ?? null,
-      preco: Math.round(preco * 10_000) / 10_000,
+      precoBomba,
+      precoVenda,
       vendidoEm: vendidoEm!,
     });
   }
   return [...rows.values()];
+}
+
+function positivo(v: unknown): number | null {
+  return typeof v === "number" && v > 0 ? Math.round(v * 10_000) / 10_000 : null;
 }
 
 export class HistoryStore {
@@ -125,23 +138,29 @@ export class HistoryStore {
            atualizado_em = now()`,
         [ps.map((p) => p.cnpj), ps.map((p) => p.nomeFantasia), ps.map((p) => p.razaoSocial), ps.map((p) => p.codigoIBGE)],
       );
-      // Só substitui o preço do dia se a venda for mais recente que a já gravada.
+      // Substitui o preço do dia se a venda for mais recente ou se o preço for menor (outro
+      // produto do mesmo tipo, mais barato, vendido antes; ver toRows).
       const res = await client.query(
-        `INSERT INTO precos_diarios (data, tipo_combustivel, cnpj, codigo_ibge, preco, vendido_em)
-         SELECT d, $1::smallint, c, i, p, v
-         FROM unnest($2::date[], $3::text[], $4::int[], $5::numeric[], $6::timestamptz[]) AS t(d, c, i, p, v)
+        `INSERT INTO precos_diarios (data, tipo_combustivel, cnpj, codigo_ibge, preco_bomba, preco_venda, vendido_em)
+         SELECT d, $1::smallint, c, i, pb, pv, v
+         FROM unnest($2::date[], $3::text[], $4::int[], $5::numeric[], $6::numeric[], $7::timestamptz[])
+           AS t(d, c, i, pb, pv, v)
          ON CONFLICT (data, tipo_combustivel, cnpj) DO UPDATE SET
-           preco = EXCLUDED.preco,
+           preco_bomba = COALESCE(EXCLUDED.preco_bomba, precos_diarios.preco_bomba),
+           preco_venda = EXCLUDED.preco_venda,
            codigo_ibge = EXCLUDED.codigo_ibge,
            vendido_em = EXCLUDED.vendido_em,
            atualizado_em = now()
-         WHERE EXCLUDED.vendido_em >= precos_diarios.vendido_em`,
+         WHERE EXCLUDED.vendido_em >= precos_diarios.vendido_em
+            OR COALESCE(EXCLUDED.preco_bomba, EXCLUDED.preco_venda)
+               < COALESCE(precos_diarios.preco_bomba, precos_diarios.preco_venda)`,
         [
           tipoCombustivel,
           rows.map((r) => r.data),
           rows.map((r) => r.cnpj),
           rows.map((r) => r.codigoIBGE),
-          rows.map((r) => r.preco),
+          rows.map((r) => r.precoBomba),
+          rows.map((r) => r.precoVenda),
           rows.map((r) => r.vendidoEm),
         ],
       );
@@ -159,15 +178,20 @@ export class HistoryStore {
     const hoje = dataLocal(new Date())!;
     const [serieRes, metaRes] = await Promise.all([
       this.pool.query<{ data: string; media: string; minimo: string; maximo: string; postos: number }>(
-        `WITH dias AS (
+        // Preço da bomba quando disponível; registros antigos só têm o de venda.
+        `WITH precos AS (
+           SELECT data, COALESCE(preco_bomba, preco_venda) AS preco
+           FROM precos_diarios
+           WHERE codigo_ibge = $1 AND tipo_combustivel = $2
+             AND data >= $3::date - ($4::int - 1)
+         ),
+         dias AS (
            SELECT data::text AS data,
                   round(avg(preco), 4) AS media,
                   min(preco) AS minimo,
                   max(preco) AS maximo,
                   count(*)::int AS postos
-           FROM precos_diarios
-           WHERE codigo_ibge = $1 AND tipo_combustivel = $2
-             AND data >= $3::date - ($4::int - 1)
+           FROM precos
            GROUP BY data
          )
          SELECT * FROM dias

@@ -8,7 +8,7 @@ export interface EconomizaConfig {
 
 /** Item de `conteudo[]` (só os campos que o servidor usa). */
 export interface CombustivelItem {
-  produto?: { venda?: { dataVenda?: string; valorVenda?: number } };
+  produto?: { venda?: { dataVenda?: string; valorVenda?: number; valorDeclarado?: number } };
   estabelecimento?: {
     cnpj?: string;
     nomeFantasia?: string;

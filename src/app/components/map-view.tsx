@@ -4,7 +4,7 @@ import { LocateFixed } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import type { GasStation } from "../../types";
 import { directionsUrl } from "../../utils/geo";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, formatRelativeTime, isStale } from "../../utils/format";
 import { HIGHLIGHTS, iconSvg, stationHighlights } from "./highlights";
 
 interface MapViewProps {
@@ -144,6 +144,13 @@ function popupHtml(station: GasStation, position: [number, number]): string {
         ">${formatNumber(station.price)}</span>
         <span style="font-size: 12px; color: #717182;">/L</span>
       </div>
+      ${
+        station.updatedAt
+          ? `<p style="font-size: 12px; margin: -8px 0 12px; color: ${isStale(station.updatedAt) ? "#B45309" : "#717182"};">
+               Atualizado ${escapeHtml(formatRelativeTime(station.updatedAt))}
+             </p>`
+          : ""
+      }
       <a
         href="${escapeHtml(directionsUrl(position[0], position[1]))}"
         target="_blank"

@@ -27,6 +27,10 @@ function formatAddress(e: NonNullable<CombustivelItem["estabelecimento"]>["ender
   return [rua, local].filter(Boolean).join(" - ") || "Endereço não disponível";
 }
 
+function positive(v: unknown): number | null {
+  return typeof v === "number" && v > 0 ? v : null;
+}
+
 export function mapCombustivelItem(
   item: CombustivelItem,
   index: number,
@@ -37,6 +41,8 @@ export function mapCombustivelItem(
   const lat = est?.endereco?.latitude;
   const lon = est?.endereco?.longitude;
   const hasCoords = typeof lat === "number" && typeof lon === "number";
+  const bomba = positive(item.produto?.venda?.valorDeclarado);
+  const venda = positive(item.produto?.venda?.valorVenda);
 
   return {
     id: est?.cnpj ?? `sem-cnpj-${index}`,
@@ -46,7 +52,9 @@ export function mapCombustivelItem(
       hasCoords && user
         ? calculateDistance(user.latitude, user.longitude, lat, lon)
         : null,
-    price: item.produto?.venda?.valorVenda ?? 0,
+    price: bomba ?? venda ?? 0,
+    salePrice: bomba !== null && venda !== null && venda < bomba - 0.005 ? venda : null,
+    updatedAt: item.produto?.venda?.dataVenda ?? null,
     fuel: COMBUSTIVEL_TIPOS[tipoCombustivel] ?? item.produto?.descricao ?? "Combustível",
     position: hasCoords ? [lat, lon] : null,
     razaoSocial: est?.razaoSocial,
@@ -54,6 +62,19 @@ export function mapCombustivelItem(
     codigoIBGE: est?.endereco?.codigoIBGE,
     municipio: est?.endereco?.municipio,
   };
+}
+
+/**
+ * A API devolve um item por produto, então um posto pode aparecer mais de uma vez no mesmo
+ * tipo (ex.: "Gasolina Aditivada" e "Gasolina Premium Aditivada"). Fica o mais barato.
+ */
+export function uniqueStations(stations: GasStation[]): GasStation[] {
+  const byId = new Map<string, GasStation>();
+  for (const s of stations) {
+    const prev = byId.get(s.id);
+    if (!prev || (s.price > 0 && (prev.price <= 0 || s.price < prev.price))) byId.set(s.id, s);
+  }
+  return [...byId.values()];
 }
 
 /** Ordena por distância; postos sem distância vão para o fim. */
@@ -93,9 +114,9 @@ export async function getCombustivelStations(
   const data: CombustiveisResponse = await response.json();
   const user = { latitude: params.latitude, longitude: params.longitude };
 
-  return (data.conteudo ?? [])
-    .map((item, i) => mapCombustivelItem(item, i, user, tipoCombustivel))
-    .sort(compareByDistance);
+  return uniqueStations(
+    (data.conteudo ?? []).map((item, i) => mapCombustivelItem(item, i, user, tipoCombustivel)),
+  ).sort(compareByDistance);
 }
 
 export async function getHistoricoPrecos(

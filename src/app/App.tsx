@@ -6,18 +6,19 @@ import { Filters } from "./components/filters";
 import { Calculators } from "./components/calculators";
 import { PriceChart } from "./components/price-chart";
 import { Search, MapPin, Loader2, AlertCircle } from "lucide-react";
-import { getCombustivelStations, compareByDistance } from "../services/economiza";
+import { COMBUSTIVEL_TIPOS, getCombustivelStations, compareByDistance } from "../services/economiza";
 import { useGeolocation } from "../hooks/useGeolocation";
 import type { FilterType, GasStation } from "../types";
 import "leaflet/dist/leaflet.css";
 import { formatNumber } from "../utils/format";
 import { costScore, withHighlights } from "./components/highlights";
-
+import { FuelSelector, loadFuelType, saveFuelType } from "./components/fuel-selector";
 
 export default function App() {
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
+  const [tipoCombustivel, setTipoCombustivel] = useState(loadFuelType);
   const [gasStations, setGasStations] = useState<GasStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     getCombustivelStations(
-      { latitude: location.latitude, longitude: location.longitude },
+      { latitude: location.latitude, longitude: location.longitude, tipoCombustivel },
       controller.signal,
     )
       .then((stations) => setGasStations(stations))
@@ -46,7 +47,13 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [location]);
+  }, [location, tipoCombustivel]);
+
+  const handleFuelChange = useCallback((tipo: number) => {
+    setTipoCombustivel(tipo);
+    saveFuelType(tipo);
+    setSelectedStation(null);
+  }, []);
 
   // Município do histórico de preços: o do posto mais próximo (lista já vem ordenada por distância)
   const regiao = useMemo(() => {
@@ -109,6 +116,12 @@ export default function App() {
           </div>
         )}
 
+        {location && (
+          <div className="mb-6">
+            <FuelSelector value={tipoCombustivel} onChange={handleFuelChange} disabled={isLoading} />
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
             <p className="font-semibold flex items-center gap-2">
@@ -128,7 +141,7 @@ export default function App() {
 
         {!isLoading && !error && gasStations.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Nenhum posto de combustível encontrado num raio de 15 km.</p>
+            <p className="text-muted-foreground">Nenhum posto com {COMBUSTIVEL_TIPOS[tipoCombustivel]} encontrado num raio de 15 km.</p>
           </div>
         )}
 
@@ -197,7 +210,11 @@ export default function App() {
 
             {regiao && (
               <div>
-                <PriceChart codigoIBGE={regiao.codigoIBGE} municipio={regiao.municipio} />
+                <PriceChart
+                  codigoIBGE={regiao.codigoIBGE}
+                  municipio={regiao.municipio}
+                  tipoCombustivel={tipoCombustivel}
+                />
               </div>
             )}
           </>

@@ -8,7 +8,12 @@ export interface GasStation {
   address: string;
   /** Distância em km até o usuário; null se não houver coordenadas */
   distance: number | null;
+  /** Preço da bomba (valorDeclarado); sem ele, o valor da última venda */
   price: number;
+  /** Valor da última venda quando ficou abaixo do preço da bomba (ex.: desconto); senão null */
+  salePrice: number | null;
+  /** Data/hora da última venda (ISO); null se a API não informar */
+  updatedAt: string | null;
   fuel: string;
   /** [lat, lon]; null se a API não informar coordenadas */
   position: [number, number] | null;

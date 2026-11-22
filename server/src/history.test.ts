@@ -30,7 +30,26 @@ describe("dataLocal", () => {
   });
 });
 
+function itemBomba(cnpj: string, bomba: number | undefined, venda: number | undefined, dataVenda: string) {
+  return {
+    produto: { venda: { valorDeclarado: bomba, valorVenda: venda, dataVenda } },
+    estabelecimento: { cnpj, endereco: { codigoIBGE: MACEIO, municipio: "MACEIO" } },
+  };
+}
+
 describe("toRows", () => {
+  it("guarda o preço da bomba e o de venda; sem venda, usa o da bomba", () => {
+    const rows = toRows([
+      itemBomba("A", 6.59, 5.5, "2026-11-22T15:00:00Z"),
+      itemBomba("B", 6.49, undefined, "2026-11-22T15:00:00Z"),
+      itemBomba("C", undefined, undefined, "2026-11-22T15:00:00Z"),
+    ]);
+    expect(rows.map((r) => [r.cnpj, r.precoBomba, r.precoVenda])).toEqual([
+      ["A", 6.59, 5.5],
+      ["B", 6.49, 6.49],
+    ]);
+  });
+
   it("converte itens válidos e ignora incompletos ou com preço zero", () => {
     const rows = toRows([
       item("A", 6.123456, "2026-11-22T15:00:00Z"),
@@ -39,17 +58,27 @@ describe("toRows", () => {
       item("D", 6, "data-invalida"),
     ]);
     expect(rows).toEqual([
-      expect.objectContaining({ cnpj: "A", data: "2026-11-22", preco: 6.1235, codigoIBGE: MACEIO, municipio: "MACEIO" }),
+      expect.objectContaining({ cnpj: "A", data: "2026-11-22", precoVenda: 6.1235, precoBomba: null, codigoIBGE: MACEIO, municipio: "MACEIO" }),
     ]);
   });
 
-  it("mantém a venda mais recente quando o posto se repete no dia", () => {
+  it("posto com dois produtos no mesmo tipo: fica o mais barato, mesmo vendido antes", () => {
+    // Caso real: Posto Tigre com aditivada (6,99) e premium aditivada (9,59, vendida depois)
     const rows = toRows([
-      item("A", 6.5, "2026-11-22T18:00:00Z"),
-      item("A", 6.0, "2026-11-22T13:00:00Z"),
+      itemBomba("TIGRE", 6.99, 6.989, "2026-11-22T14:57:03Z"),
+      itemBomba("TIGRE", 9.59, 9.59, "2026-11-22T15:06:50Z"),
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.preco).toBe(6.5);
+    expect(rows[0]).toMatchObject({ precoBomba: 6.99, vendidoEm: "2026-11-22T14:57:03Z" });
+  });
+
+  it("produtos com o mesmo preço: fica a venda mais recente", () => {
+    const rows = toRows([
+      itemBomba("SENA", 7.16, 7.16, "2026-11-22T12:51:16Z"),
+      itemBomba("SENA", 7.16, 7.16, "2026-11-22T14:20:15Z"),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.vendidoEm).toBe("2026-11-22T14:20:15Z");
   });
 });
 
@@ -130,6 +159,27 @@ describe.skipIf(!TEST_DATABASE_URL)("HistoryStore (Postgres)", { timeout: 30_000
   it("todas as migrations do disco estão registradas", async () => {
     const res = await pool.query<{ name: string }>(`SELECT name FROM ${MIGRATIONS_TABLE} ORDER BY run_on, id`);
     expect(res.rows.map((r) => r.name)).toEqual(migrationNames());
+  });
+
+  it("usa o preço da bomba na série e cai para o de venda quando não houver", async () => {
+    await store.record(2, [
+      itemBomba("A", 6.6, 5.6, hojeMenos(0)), // desconto na venda: vale a bomba (6,60)
+      itemBomba("B", undefined, 6.4, hojeMenos(0)), // registro sem bomba: vale a venda (6,40)
+    ]);
+    expect((await store.query(MACEIO, 2, 30)).serie[0]).toMatchObject({ media: 6.5, minimo: 6.4, maximo: 6.6 });
+
+    // Nova coleta sem preço da bomba não apaga o que já foi gravado
+    await store.record(2, [itemBomba("A", undefined, 5.7, hojeMenos(0, 30))]);
+    expect((await store.query(MACEIO, 2, 30)).serie[0]!.maximo).toBe(6.6);
+  });
+
+  it("produto mais barato vendido antes substitui o mais caro já gravado no dia", async () => {
+    await store.record(2, [itemBomba("TIGRE", 9.59, 9.59, hojeMenos(0, 10))]); // coleta antiga: só a premium
+    await store.record(2, [
+      itemBomba("TIGRE", 6.99, 6.99, hojeMenos(0)),
+      itemBomba("TIGRE", 9.59, 9.59, hojeMenos(0, 10)),
+    ]);
+    expect((await store.query(MACEIO, 2, 30)).serie[0]).toMatchObject({ media: 6.99, postos: 1 });
   });
 
   it("município sem dados devolve série vazia", async () => {
