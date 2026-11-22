@@ -82,11 +82,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Package manager files
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
 # Cache directories
 .turbo
 .cache
@@ -95,3 +90,6 @@ pnpm-lock.yaml
 
 # OS generated files
 *.log
+
+# Histórico de preços coletado pelo servidor
+server/data/

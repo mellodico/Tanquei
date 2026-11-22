@@ -1,15 +1,8 @@
-import { MapPin, Navigation, TrendingDown } from "lucide-react";
-
-interface GasStation {
-  id: number;
-  name: string;
-  address: string;
-  distance: number;
-  price: number;
-  fuel: string;
-  position: [number, number];
-  isCheapest: boolean;
-}
+import { MapPin, Navigation } from "lucide-react";
+import { stationHighlights } from "./highlights";
+import type { GasStation } from "../../types";
+import { directionsUrl } from "../../utils/geo";
+import { formatNumber } from "../../utils/format";
 
 interface GasStationCardProps {
   station: GasStation;
@@ -18,6 +11,7 @@ interface GasStationCardProps {
 }
 
 export function GasStationCard({ station, isSelected, onSelect }: GasStationCardProps) {
+  const highlights = stationHighlights(station);
   return (
     <div
       onClick={onSelect}
@@ -32,13 +26,21 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
             <h3 className="text-lg" style={{ color: 'var(--tanquei-purple)' }}>
               {station.name}
             </h3>
-            {station.isCheapest && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-xs text-white">
-                <TrendingDown className="h-3 w-3" />
-                Melhor Preço
-              </div>
-            )}
           </div>
+          {highlights.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 mb-1">
+              {highlights.map(({ kind, label, color, icon: Icon }) => (
+                <span
+                  key={kind}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-white"
+                  style={{ background: color }}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4" />
             <span>{station.address}</span>
@@ -60,7 +62,7 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
                 backgroundClip: 'text',
               }}
             >
-              {station.price.toFixed(2)}
+              {formatNumber(station.price)}
             </span>
             <span className="text-xs text-muted-foreground">/L</span>
           </div>
@@ -68,19 +70,20 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
 
         <div className="flex flex-col items-end gap-2">
           <div className="text-sm text-muted-foreground">
-            {station.distance.toFixed(1)} km
+            {station.distance !== null ? `${formatNumber(station.distance, 1)} km` : "Distância indisponível"}
           </div>
-          <button
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white text-sm hover:shadow-lg transition-all"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Simular navegação
-              alert(`Navegando para ${station.name}`);
-            }}
-          >
-            <Navigation className="h-4 w-4" />
-            Como chegar
-          </button>
+          {station.position && (
+            <a
+              href={directionsUrl(station.position[0], station.position[1])}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white text-sm hover:shadow-lg transition-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Navigation className="h-4 w-4" />
+              Como chegar
+            </a>
+          )}
         </div>
       </div>
     </div>

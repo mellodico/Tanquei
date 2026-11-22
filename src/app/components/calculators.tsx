@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Calculator, Car, Route } from "lucide-react";
+import { Car, Route } from "lucide-react";
+import { formatNumber } from "../../utils/format";
 
 export function Calculators() {
   const [tankSize, setTankSize] = useState("");
@@ -19,8 +20,8 @@ export function Calculators() {
     const totalCost = litersNeeded * price;
 
     return {
-      litersNeeded: litersNeeded.toFixed(2),
-      totalCost: totalCost.toFixed(2),
+      litersNeeded: formatNumber(litersNeeded),
+      totalCost: formatNumber(totalCost),
     };
   };
 
@@ -29,14 +30,14 @@ export function Calculators() {
     const cons = parseFloat(consumption);
     const price = parseFloat(fuelPrice);
 
-    if (isNaN(dist) || isNaN(cons) || isNaN(price)) return null;
+    if (isNaN(dist) || isNaN(cons) || isNaN(price) || cons <= 0) return null;
 
     const litersNeeded = dist / cons;
     const totalCost = litersNeeded * price;
 
     return {
-      litersNeeded: litersNeeded.toFixed(2),
-      totalCost: totalCost.toFixed(2),
+      litersNeeded: formatNumber(litersNeeded),
+      totalCost: formatNumber(totalCost),
     };
   };
 
@@ -50,7 +51,6 @@ export function Calculators() {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Calculadora de Encher o Tanque */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">
@@ -127,7 +127,6 @@ export function Calculators() {
           </div>
         </div>
 
-        {/* Calculadora de Custo da Viagem */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">

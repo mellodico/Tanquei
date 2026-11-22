@@ -1,6 +1,6 @@
 import { DollarSign, TrendingDown, Navigation2 } from "lucide-react";
 
-export type FilterType = "melhor-custo" | "mais-barato" | "mais-perto" | null;
+import type { FilterType } from "../../types";
 
 interface FiltersProps {
   activeFilter: FilterType;
