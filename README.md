@@ -167,8 +167,12 @@ Sem eles (ou em PRs de forks, que não recebem secrets), o job é pulado com um 
 
 ## Deploy
 
-Veja [docs/DEPLOY.md](docs/DEPLOY.md): hospedagem, variáveis de produção, migrations como passo
-de release, health checks e publicação do frontend.
+| Parte | Onde | Configuração essencial |
+|-------|------|------------------------|
+| Frontend (raiz) | Vercel (preset Vite, saída `dist`) | `VITE_API_BASE` = URL completa do servidor, com `https://`, sem `/api` e sem barra no final. É lida no build: depois de mudar, faça *Redeploy* |
+| Servidor (`server/`) | Railway (Root Directory `/server`, usa o `Dockerfile`) | Variáveis do `.env.example` sem aspas, `NODE_ENV=production`, `TRUST_PROXY=1`, `CORS_ORIGINS` com o domínio da Vercel. *Pre-deploy Command*: `npm run migrate`. *Healthcheck Path*: `/health`. *Serverless* desligado (a coleta do histórico precisa do processo ativo) |
+
+Rode uma única instância do servidor: cada instância faz a própria coleta e tem o próprio cache.
 
 ## Notas
 
