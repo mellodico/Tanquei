@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { AlertCircle, Loader2, TrendingUp } from "lucide-react";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, titleCase } from "../../utils/format";
 import { COMBUSTIVEL_TIPOS, getHistoricoPrecos } from "../../services/economiza";
 import type { HistoricoResposta, PontoDiario } from "../../types";
 
@@ -36,10 +36,6 @@ function dataCompleta(data: string): string {
   return `${d}/${m}/${a}`;
 }
 
-function titleCase(s: string): string {
-  return s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
-}
-
 const gradientText = {
   background: "linear-gradient(135deg, #FFC90E 0%, #FF8200 100%)",
   WebkitBackgroundClip: "text",
@@ -51,9 +47,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
   if (!active || !payload?.length) return null;
   const p = payload[0]!.payload;
   return (
-    <div className="bg-white p-3 rounded-xl shadow-lg border border-border text-sm">
+    <div className="bg-card p-3 rounded-xl shadow-lg border border-border text-sm">
       <p className="text-muted-foreground mb-1">{dataCompleta(p.data)}</p>
-      <p className="text-xl" style={gradientText}>
+      <p className="font-display text-xl font-bold tabular-nums" style={gradientText}>
         R$ {formatNumber(p.media)} <span className="text-xs">média</span>
       </p>
       <p className="text-muted-foreground">
@@ -97,18 +93,19 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
   const primeiro = serie[0];
   const variacao =
     ultimo && primeiro && serie.length >= 2 ? ((ultimo.media - primeiro.media) / primeiro.media) * 100 : null;
-  const nomeMunicipio = titleCase(historico?.municipio ?? municipio ?? "sua região");
+  const nomeBruto = historico?.municipio ?? municipio;
+  const nomeMunicipio = nomeBruto ? titleCase(nomeBruto) : "sua região";
   const combustivel = COMBUSTIVEL_TIPOS[tipoCombustivel] ?? "Combustível";
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <div className="bg-card rounded-2xl p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h3 className="text-xl" style={{ color: "var(--tanquei-purple)" }}>
+            <h3 className="text-xl" style={{ color: "var(--heading)" }}>
               Variação de Preços - {combustivel}
             </h3>
             <p className="text-sm text-muted-foreground">
@@ -137,13 +134,13 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
           </div>
           {ultimo && (
             <div className="flex items-center justify-end gap-2">
-              <span className="text-2xl" style={gradientText}>
+              <span className="font-display text-2xl font-bold tabular-nums" style={gradientText}>
                 R$ {formatNumber(ultimo.media)}
               </span>
               {variacao !== null && (
                 <span
                   className={`text-sm ${
-                    variacao > 0 ? "text-red-500" : variacao < 0 ? "text-green-600" : "text-muted-foreground"
+                    variacao > 0 ? "text-red-500 dark:text-red-400" : variacao < 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
                   }`}
                   title={`Desde ${dataCompleta(primeiro!.data)}`}
                 >
@@ -161,7 +158,7 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
           Carregando histórico...
         </div>
       ) : error ? (
-        <div className="h-[300px] flex flex-col items-center justify-center text-red-700 gap-2">
+        <div className="h-[300px] flex flex-col items-center justify-center text-red-700 dark:text-red-400 gap-2">
           <AlertCircle className="h-6 w-6" />
           <p className="text-sm">{error}</p>
         </div>
@@ -189,10 +186,10 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
                     <stop offset="95%" stopColor="#FF8200" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="data" tickFormatter={diaMes} stroke="#717182" tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                <XAxis dataKey="data" tickFormatter={diaMes} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} />
                 <YAxis
-                  stroke="#717182"
+                  stroke="var(--chart-axis)"
                   tick={{ fontSize: 12 }}
                   width={70}
                   domain={[(min: number) => Math.max(0, min - 0.1), (max: number) => max + 0.1]}
@@ -203,7 +200,7 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
                   type="monotone"
                   dataKey="maximo"
                   name="Máximo"
-                  stroke="#9CA3AF"
+                  stroke="var(--chart-range)"
                   strokeDasharray="4 4"
                   dot={false}
                   isAnimationActive={false}
@@ -212,7 +209,7 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
                   type="monotone"
                   dataKey="minimo"
                   name="Mínimo"
-                  stroke="#9CA3AF"
+                  stroke="var(--chart-range)"
                   strokeDasharray="4 4"
                   dot={false}
                   isAnimationActive={false}
@@ -239,19 +236,19 @@ export function PriceChart({ codigoIBGE, municipio, tipoCombustivel = 1 }: Price
         <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-1">Preço Médio</p>
-            <p className="text-lg" style={{ color: "var(--tanquei-purple)" }}>
+            <p className="font-display text-lg font-semibold tabular-nums" style={{ color: "var(--heading)" }}>
               R$ {formatNumber(ultimo.media)}
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-1">Preço Mínimo</p>
-            <p className="text-lg" style={{ color: "var(--tanquei-purple)" }}>
+            <p className="font-display text-lg font-semibold tabular-nums" style={{ color: "var(--heading)" }}>
               R$ {formatNumber(ultimo.minimo)}
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-1">Preço Máximo</p>
-            <p className="text-lg" style={{ color: "var(--tanquei-purple)" }}>
+            <p className="font-display text-lg font-semibold tabular-nums" style={{ color: "var(--heading)" }}>
               R$ {formatNumber(ultimo.maximo)}
             </p>
           </div>

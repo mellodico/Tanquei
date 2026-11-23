@@ -1,0 +1,4 @@
+/* Fontes servidas junto com o site (Fontsource), sem depender do Google Fonts.
+   Figtree: texto e interface. Bricolage Grotesque: títulos e preços. */
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/bricolage-grotesque';

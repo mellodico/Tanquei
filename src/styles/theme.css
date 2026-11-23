@@ -42,30 +42,39 @@
   
   /* Tanquei Custom Colors */
   --tanquei-purple: #380B61;
+  /* Títulos e textos de destaque (roxo no claro, lilás no escuro) */
+  --heading: #380B61;
+  --stale: #B45309;
+  --chart-grid: #e5e7eb;
+  --chart-axis: #717182;
+  --chart-range: #9CA3AF;
+  color-scheme: light;
   --tanquei-yellow: #FFC90E;
   --tanquei-orange: #FF8200;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: #120d18;
+  --foreground: #ece8f2;
+  --card: #1d1626;
+  --card-foreground: #ece8f2;
+  --popover: #1d1626;
+  --popover-foreground: #ece8f2;
+  --primary: #d9c8f5;
+  --primary-foreground: #1d1626;
+  --secondary: #2a2135;
+  --secondary-foreground: #ece8f2;
+  --muted: #2a2135;
+  --muted-foreground: #a8a1b5;
+  --accent: #FFC90E;
+  --accent-foreground: #1a1300;
+  --destructive: #f05470;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --input-background: #2a2135;
+  --switch-background: #4a4058;
+  --ring: #6b5a80;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -81,11 +90,21 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  --heading: #e2d4f7;
+  --stale: #fbbf24;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-axis: #a8a1b5;
+  --chart-range: #6f6880;
+  color-scheme: dark;
 }
 
 @theme inline {
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-heading: var(--heading);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -142,6 +161,13 @@
     font-size: var(--font-size);
   }
 
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
@@ -150,13 +176,13 @@
 
   h2 {
     font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
+    font-weight: 700;
     line-height: 1.5;
   }
 
   h3 {
     font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
+    font-weight: 600;
     line-height: 1.5;
   }
 
@@ -183,4 +209,48 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+/* Faixa com rolagem horizontal sem barra visível (seletor de combustível no celular) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* O Leaflet define Helvetica/Arial (e o CSS dele carrega depois deste); o mapa usa a fonte do site */
+:root .leaflet-container {
+  font-family: var(--font-sans);
+}
+
+/* Mapa no modo noturno: tiles invertidos (os pinos ficam com as cores originais) e controles escuros */
+.dark .leaflet-container {
+  background: #1d1626;
+}
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--foreground);
+}
+.dark .leaflet-container a.leaflet-popup-close-button {
+  color: var(--muted-foreground);
+}
+.dark .leaflet-bar a {
+  background: var(--card);
+  color: var(--foreground);
+  border-bottom-color: var(--border);
+}
+.dark .leaflet-bar a:hover {
+  background: var(--muted);
+}
+.dark .leaflet-control-attribution {
+  background: rgba(29, 22, 38, 0.8);
+  color: var(--muted-foreground);
+}
+.dark .leaflet-control-attribution a {
+  color: var(--heading);
 }

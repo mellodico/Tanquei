@@ -38,7 +38,7 @@ describe("mapCombustivelItem (resposta real da API)", () => {
   });
 
   it("monta o endereço a partir do objeto endereco", () => {
-    expect(station.address).toBe("AV GOVERNADOR LAMENHA FILHO, 1880 - FEITOSA - MACEIO");
+    expect(station.address).toBe("Av Governador Lamenha Filho, 1880 - Feitosa - Maceio");
     expect(station.address).not.toContain("[object Object]");
   });
 
@@ -50,7 +50,7 @@ describe("mapCombustivelItem (resposta real da API)", () => {
 
   it("usa CNPJ como id e nome fantasia como nome", () => {
     expect(station.id).toBe("20528778000185");
-    expect(station.name).toBe("AUTO POSTO NICAULA");
+    expect(station.name).toBe("Auto Posto Nicaula");
     expect(station.fuel).toBe("Gasolina Comum");
   });
 

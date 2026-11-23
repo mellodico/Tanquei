@@ -33,3 +33,28 @@ export const PRECO_ANTIGO_MS = 24 * 60 * 60 * 1000;
 export function isStale(iso: string | null, now: number = Date.now()): boolean {
   return iso !== null && now - new Date(iso).getTime() > PRECO_ANTIGO_MS;
 }
+
+/** Palavras que ficam minúsculas no meio de nomes ("Posto da Praia", "Av. Senador Rui Palmeira"). */
+const MINUSCULAS = new Set(["a", "as", "o", "os", "e", "de", "da", "das", "do", "dos", "em", "na", "nas", "no", "nos"]);
+
+/**
+ * Converte nomes em caixa alta vindos da API para caixa de título:
+ * "AUTO POSTO LESTE-OESTE" → "Auto Posto Leste-Oeste", "POSTO DA BR-104" → "Posto da BR-104".
+ * Mantém em maiúsculas siglas com números (BR-104, AL-101), algarismos romanos (II, IV) e
+ * abreviações com barra (S/A).
+ */
+export function titleCase(text: string): string {
+  return text
+    .toLocaleLowerCase("pt-BR")
+    .split(/(\s+)/)
+    .map((word, i) => {
+      if (/^\s+$/.test(word) || word === "") return word;
+      const upper = word.toLocaleUpperCase("pt-BR");
+      if (/\d/.test(word) && /^[A-Z]{1,3}-?\d/.test(upper)) return upper;
+      if (/^(I{1,3}|IV|VI{0,3}|IX|XI{0,3})$/.test(upper)) return upper;
+      if (word.includes("/") && word.length <= 4) return upper;
+      if (i > 0 && MINUSCULAS.has(word)) return word;
+      return word.replace(/(^|[-'(])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toLocaleUpperCase("pt-BR"));
+    })
+    .join("");
+}

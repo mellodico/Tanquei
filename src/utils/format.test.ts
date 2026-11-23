@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNumber, formatRelativeTime, isStale } from "./format";
+import { formatNumber, formatRelativeTime, isStale, titleCase } from "./format";
 
 describe("formatNumber", () => {
   it("usa ponto para milhar e vírgula para decimais", () => {
@@ -32,5 +32,28 @@ describe("isStale", () => {
     expect(isStale("2026-11-22T10:00:00Z", now)).toBe(false);
     expect(isStale("2026-11-21T14:00:00Z", now)).toBe(true);
     expect(isStale(null, now)).toBe(false);
+  });
+});
+
+describe("titleCase", () => {
+  it("converte caixa alta em caixa de título", () => {
+    expect(titleCase("AUTO POSTO LESTE-OESTE")).toBe("Auto Posto Leste-Oeste");
+    expect(titleCase("AV GOV AFRANIO LAGES, 710")).toBe("Av Gov Afranio Lages, 710");
+  });
+
+  it("deixa preposições minúsculas, exceto no início", () => {
+    expect(titleCase("POSTO DA PRAIA DE PAJUCARA")).toBe("Posto da Praia de Pajucara");
+    expect(titleCase("DO BRASIL")).toBe("Do Brasil");
+  });
+
+  it("mantém siglas de rodovia, algarismos romanos e S/A", () => {
+    expect(titleCase("POSTO BR-104")).toBe("Posto BR-104");
+    expect(titleCase("RODOVIA AL 101 NORTE")).toBe("Rodovia Al 101 Norte");
+    expect(titleCase("COMERCIAL II S/A")).toBe("Comercial II S/A");
+  });
+
+  it("trata acentos e apóstrofos", () => {
+    expect(titleCase("POSTO SÃO JOSÉ")).toBe("Posto São José");
+    expect(titleCase("OLHO D'AGUA")).toBe("Olho D'Agua");
   });
 });

@@ -46,17 +46,17 @@ export function Calculators() {
 
   return (
     <div id="calculadoras" className="space-y-6">
-      <h2 className="text-2xl" style={{ color: 'var(--tanquei-purple)' }}>
+      <h2 className="text-2xl" style={{ color: 'var(--heading)' }}>
         Calculadoras
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <div className="bg-card rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">
               <Car className="h-5 w-5 text-white" />
             </div>
-            <h3 className="text-lg" style={{ color: 'var(--tanquei-purple)' }}>
+            <h3 className="text-lg" style={{ color: 'var(--heading)' }}>
               Encher o Tanque
             </h3>
           </div>
@@ -110,8 +110,8 @@ export function Calculators() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Valor total:</span>
-                  <span 
-                    className="text-2xl"
+                  <span
+                    className="font-display text-2xl font-bold tabular-nums"
                     style={{
                       background: 'linear-gradient(135deg, #FFC90E 0%, #FF8200 100%)',
                       WebkitBackgroundClip: 'text',
@@ -127,12 +127,12 @@ export function Calculators() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <div className="bg-card rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200]">
               <Route className="h-5 w-5 text-white" />
             </div>
-            <h3 className="text-lg" style={{ color: 'var(--tanquei-purple)' }}>
+            <h3 className="text-lg" style={{ color: 'var(--heading)' }}>
               Custo da Viagem
             </h3>
           </div>
@@ -187,8 +187,8 @@ export function Calculators() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Custo estimado:</span>
-                  <span 
-                    className="text-2xl"
+                  <span
+                    className="font-display text-2xl font-bold tabular-nums"
                     style={{
                       background: 'linear-gradient(135deg, #FFC90E 0%, #FF8200 100%)',
                       WebkitBackgroundClip: 'text',

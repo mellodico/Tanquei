@@ -11,8 +11,13 @@ const TIPOS = Object.entries(COMBUSTIVEL_TIPOS).map(([tipo, label]) => ({ tipo: 
 
 export function FuelSelector({ value, onChange, disabled }: FuelSelectorProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Combustível">
-      <Fuel className="h-4 w-4 text-muted-foreground" aria-hidden />
+    // No celular, uma faixa com rolagem horizontal (encostada nas bordas); a partir de sm, quebra em linhas
+    <div
+      className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      role="radiogroup"
+      aria-label="Combustível"
+    >
+      <Fuel className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       {TIPOS.map(({ tipo, label }) => {
         const active = tipo === value;
         return (
@@ -23,12 +28,12 @@ export function FuelSelector({ value, onChange, disabled }: FuelSelectorProps) {
             aria-checked={active}
             disabled={disabled}
             onClick={() => onChange(tipo)}
-            className={`px-3 py-1.5 rounded-full text-sm transition-all disabled:opacity-60 ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               active
                 ? "bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white shadow-sm"
-                : "bg-white border border-border hover:border-[#FF8200]"
+                : "bg-card border border-border hover:border-[#FF8200]"
             }`}
-            style={active ? undefined : { color: "var(--tanquei-purple)" }}
+            style={active ? undefined : { color: "var(--heading)" }}
           >
             {label}
           </button>

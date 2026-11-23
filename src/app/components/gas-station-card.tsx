@@ -16,14 +16,14 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
     <div
       onClick={onSelect}
       className={`
-        bg-white rounded-2xl p-5 cursor-pointer transition-all shadow-sm hover:shadow-md
+        bg-card rounded-2xl p-5 cursor-pointer transition-all shadow-sm hover:shadow-md
         ${isSelected ? 'ring-2 ring-inset ring-[#FFC90E] shadow-lg' : ''}
       `}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg" style={{ color: 'var(--tanquei-purple)' }}>
+            <h3 className="text-lg" style={{ color: 'var(--heading)' }}>
               {station.name}
             </h3>
           </div>
@@ -53,8 +53,8 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
           <p className="text-xs text-muted-foreground mb-1">{station.fuel}</p>
           <div className="flex items-baseline gap-1">
             <span className="text-xs text-muted-foreground">R$</span>
-            <span 
-              className="text-3xl"
+            <span
+              className="font-display text-3xl font-bold tabular-nums"
               style={{ 
                 background: 'linear-gradient(135deg, #FFC90E 0%, #FF8200 100%)',
                 WebkitBackgroundClip: 'text',
@@ -74,7 +74,7 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
           {station.updatedAt && (
             <p
               className={`flex items-center gap-1 text-xs mt-1 ${
-                isStale(station.updatedAt) ? "text-amber-700" : "text-muted-foreground"
+                isStale(station.updatedAt) ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
               }`}
               title={new Date(station.updatedAt).toLocaleString("pt-BR")}
             >
@@ -94,7 +94,11 @@ export function GasStationCard({ station, isSelected, onSelect }: GasStationCard
               href={directionsUrl(station.position[0], station.position[1])}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white text-sm hover:shadow-lg transition-all"
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                isSelected
+                  ? "bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white shadow-md"
+                  : "border border-border text-heading hover:border-[#FF8200]"
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <Navigation className="h-4 w-4" />

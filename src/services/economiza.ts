@@ -6,6 +6,7 @@ import type {
   HistoricoResposta,
 } from "../types";
 import { calculateDistance } from "../utils/geo";
+import { titleCase } from "../utils/format";
 
 // Caminho relativo: em dev o Vite faz proxy de /api para o backend (vite.config.ts).
 // Em produção, defina VITE_API_BASE se o backend estiver em outro domínio.
@@ -24,7 +25,8 @@ function formatAddress(e: NonNullable<CombustivelItem["estabelecimento"]>["ender
   if (!e) return "Endereço não disponível";
   const rua = [e.nomeLogradouro, e.numeroImovel].filter(Boolean).join(", ");
   const local = [e.bairro, e.municipio].filter(Boolean).join(" - ");
-  return [rua, local].filter(Boolean).join(" - ") || "Endereço não disponível";
+  const endereco = [rua, local].filter(Boolean).join(" - ");
+  return endereco ? titleCase(endereco) : "Endereço não disponível";
 }
 
 function positive(v: unknown): number | null {
@@ -46,7 +48,7 @@ export function mapCombustivelItem(
 
   return {
     id: est?.cnpj ?? `sem-cnpj-${index}`,
-    name: est?.nomeFantasia || est?.razaoSocial || "Sem nome",
+    name: est?.nomeFantasia || est?.razaoSocial ? titleCase((est.nomeFantasia || est.razaoSocial)!) : "Sem nome",
     address: formatAddress(est?.endereco),
     distance:
       hasCoords && user

@@ -20,6 +20,13 @@ interface MapViewProps {
 
 const USER_ZOOM = 15;
 
+/** Leaflet calcula zoom NaN ao enquadrar num mapa sem tamanho (escondido com display: none). */
+function hasSize(map: L.Map): boolean {
+  const { x, y } = map.getSize();
+  return x > 0 && y > 0;
+}
+
+
 function createUserIcon(isFallback: boolean): L.DivIcon {
   const color = isFallback ? "#9CA3AF" : "#2563EB";
   return L.divIcon({
@@ -127,27 +134,29 @@ function popupHtml(station: GasStation, position: [number, number]): string {
   return `
     <div style="padding: 8px; min-width: 200px;">
       ${highlightPills(station)}
-      <h3 style="margin-bottom: 4px; color: #380B61; font-size: 16px; font-weight: 500;">
+      <h3 style="margin: 0 0 2px; color: var(--heading); font-size: 16px; font-weight: 600;">
         ${escapeHtml(station.name)}
       </h3>
-      <p style="font-size: 14px; color: #717182; margin-bottom: 8px;">
+      <p style="font-size: 14px; color: var(--muted-foreground); margin: 0 0 8px;">
         ${escapeHtml(station.address)}
       </p>
       <div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 12px;">
-        <span style="font-size: 12px; color: #717182;">R$</span>
+        <span style="font-size: 12px; color: var(--muted-foreground);">R$</span>
         <span style="
+          font-family: var(--font-display);
+          font-variant-numeric: tabular-nums;
           font-size: 24px;
           background: linear-gradient(135deg, #FFC90E 0%, #FF8200 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          font-weight: 600;
+          font-weight: 700;
         ">${formatNumber(station.price)}</span>
-        <span style="font-size: 12px; color: #717182;">/L</span>
+        <span style="font-size: 12px; color: var(--muted-foreground);">/L</span>
       </div>
       ${
         station.updatedAt
-          ? `<p style="font-size: 12px; margin: -8px 0 12px; color: ${isStale(station.updatedAt) ? "#B45309" : "#717182"};">
+          ? `<p style="font-size: 12px; margin: -8px 0 12px; color: ${isStale(station.updatedAt) ? "var(--stale)" : "var(--muted-foreground)"};">
                Atualizado ${escapeHtml(formatRelativeTime(station.updatedAt))}
              </p>`
           : ""
@@ -191,19 +200,37 @@ export function MapView({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const initialCenter = useRef(userLocation);
   const lastIdsKey = useRef("");
+  /** Enquadramento adiado enquanto o mapa está escondido (aba "Lista" no celular, tamanho 0×0) */
+  const pendingView = useRef<(() => void) | null>(null);
   const [userLat, userLon] = userLocation;
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current).setView(initialCenter.current, 13);
+    const container = mapContainerRef.current;
+    const map = L.map(container).setView(initialCenter.current, 13);
+    // No modo noturno os tiles são invertidos por CSS (theme.css)
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     mapRef.current = map;
     const markers = markersRef.current;
 
+    // No celular o mapa fica escondido atrás da aba "Lista": ao aparecer, o Leaflet precisa
+    // recalcular o tamanho (senão desenha só um pedaço dos tiles) e aplicar o enquadramento
+    // que ficou pendente enquanto ele não tinha tamanho.
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+      if (pendingView.current && hasSize(map)) {
+        const apply = pendingView.current;
+        pendingView.current = null;
+        apply();
+      }
+    });
+    resizeObserver.observe(container);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
@@ -234,6 +261,16 @@ export function MapView({
       ...markersRef.current.values(),
       ...(userMarkerRef.current ? [userMarkerRef.current] : []),
     ]).getBounds();
+
+  /** Executa agora se o mapa estiver visível; senão, guarda para quando ele aparecer. */
+  const whenVisible = (map: L.Map, apply: () => void) => {
+    if (hasSize(map)) {
+      pendingView.current = null;
+      apply();
+    } else {
+      pendingView.current = apply;
+    }
+  };
 
   const recenterOnUser = () => {
     const map = mapRef.current;
@@ -267,10 +304,7 @@ export function MapView({
     if (idsKey !== lastIdsKey.current) {
       lastIdsKey.current = idsKey;
       if (markersRef.current.size > 0) {
-        map.fitBounds(allBounds(), {
-          padding: [50, 50],
-          maxZoom: 14,
-        });
+        whenVisible(map, () => map.fitBounds(allBounds(), { padding: [50, 50], maxZoom: 14 }));
       }
     }
   }, [stations, onStationSelect]);
@@ -282,17 +316,24 @@ export function MapView({
     if (selectedStationId) {
       const marker = markersRef.current.get(selectedStationId);
       if (marker) {
-        map.flyTo(marker.getLatLng(), 15, { duration: 1 });
-        marker.openPopup();
+        if (hasSize(map)) {
+          map.flyTo(marker.getLatLng(), 15, { duration: 1 });
+          marker.openPopup();
+        } else {
+          whenVisible(map, () => {
+            map.setView(marker.getLatLng(), 15);
+            marker.openPopup();
+          });
+        }
       }
     } else {
       map.closePopup();
       if (markersRef.current.size > 0) {
-        map.flyToBounds(allBounds(), {
-          padding: [50, 50],
-          duration: 1,
-          maxZoom: 13,
-        });
+        if (hasSize(map)) {
+          map.flyToBounds(allBounds(), { padding: [50, 50], duration: 1, maxZoom: 13 });
+        } else {
+          whenVisible(map, () => map.fitBounds(allBounds(), { padding: [50, 50], maxZoom: 13 }));
+        }
       }
     }
   }, [selectedStationId]);
@@ -303,10 +344,9 @@ export function MapView({
       <div
         ref={mapContainerRef}
         className="w-full h-full rounded-2xl overflow-hidden shadow-md"
-        style={{ minHeight: "600px" }}
       />
       <div
-        className="absolute bottom-6 left-4 z-[1000] rounded-xl bg-white/95 px-3 py-2 text-xs shadow-md space-y-1"
+        className="absolute bottom-6 left-4 z-[1000] rounded-xl bg-card/95 px-3 py-2 text-xs shadow-md space-y-1"
         aria-label="Legenda do mapa"
       >
         {HIGHLIGHTS.map(({ kind, label, color, icon: Icon }) => (
@@ -339,8 +379,8 @@ export function MapView({
         onClick={recenterOnUser}
         title={isFallbackLocation ? "Centralizar no centro de Maceió" : "Centralizar na minha localização"}
         aria-label={isFallbackLocation ? "Centralizar no centro de Maceió" : "Centralizar na minha localização"}
-        className="absolute bottom-6 right-4 z-[1000] flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium shadow-md transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent"
-        style={{ color: "var(--tanquei-purple)" }}
+        className="absolute bottom-6 right-4 z-[1000] flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-medium shadow-md transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent"
+        style={{ color: "var(--heading)" }}
       >
         <LocateFixed className="h-4 w-4" />
         {isFallbackLocation ? "Centro de Maceió" : "Minha localização"}

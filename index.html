@@ -2,9 +2,37 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/app/components/assets/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tanquei</title>
+    <title>Tanquei · Combustível mais barato em Alagoas</title>
+    <meta name="description" content="Encontre o combustível mais barato perto de você. Preços dos postos de Alagoas, a partir das vendas registradas na SEFAZ-AL." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1d1626" media="(prefers-color-scheme: dark)" />
+
+    <!-- Prévia ao compartilhar o link (WhatsApp, redes sociais). A imagem precisa de URL absoluta. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Tanquei" />
+    <meta property="og:title" content="Tanquei · Combustível mais barato em Alagoas" />
+    <meta property="og:description" content="Encontre o combustível mais barato perto de você. Preços dos postos de Alagoas, a partir das vendas registradas na SEFAZ-AL." />
+    <meta property="og:url" content="https://tanquei-eight.vercel.app/" />
+    <meta property="og:image" content="https://tanquei-eight.vercel.app/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Logo do Tanquei e o texto: Encontre o combustível mais barato perto de você" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Aplica o tema antes da primeira pintura, para a página não piscar em branco.
+      // Escolha salva (src/hooks/useTheme.ts) ou, sem escolha, o tema do sistema.
+      (function () {
+        var tema = null;
+        try { tema = localStorage.getItem("tanquei:tema"); } catch (e) {}
+        if (tema === "dark" || (tema !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,5 +1,4 @@
 export type HighlightKind = "mais-barato" | "mais-perto" | "melhor-custo";
-export type FilterType = HighlightKind | null;
 
 export interface GasStation {
   /** CNPJ do estabelecimento (único por posto) */

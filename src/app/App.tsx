@@ -1,13 +1,16 @@
 import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
 import { Header } from "./components/header";
+import { Footer } from "./components/footer";
 import { GasStationCard } from "./components/gas-station-card";
-import { Filters } from "./components/filters";
+import { SortSelector } from "./components/sort-selector";
+import { StationsSkeleton } from "./components/stations-skeleton";
 import { Calculators } from "./components/calculators";
-import { Search, MapPin, Loader2, AlertCircle } from "lucide-react";
+import { Search, MapPin, Loader2, AlertCircle, List, Map as MapIcon } from "lucide-react";
 import { COMBUSTIVEL_TIPOS, getCombustivelStations, compareByDistance } from "../services/economiza";
 import { useGeolocation } from "../hooks/useGeolocation";
-import type { FilterType, GasStation } from "../types";
-import { formatNumber } from "../utils/format";
+import { useTheme } from "../hooks/useTheme";
+import type { GasStation, HighlightKind } from "../types";
+import { titleCase } from "../utils/format";
 import { costScore, withHighlights } from "./components/highlights";
 import { FuelSelector, loadFuelType, saveFuelType } from "./components/fuel-selector";
 import { WhenVisible } from "./components/when-visible";
@@ -18,17 +21,22 @@ const PriceChart = lazy(() => import("./components/price-chart").then((m) => ({ 
 
 function BlockPlaceholder({ label, className }: { label: string; className: string }) {
   return (
-    <div className={`${className} rounded-2xl bg-white shadow-sm flex items-center justify-center text-muted-foreground`}>
+    <div className={`${className} rounded-2xl bg-card shadow-sm flex items-center justify-center text-muted-foreground`}>
       <Loader2 className="h-5 w-5 animate-spin mr-2" />
       {label}
     </div>
   );
 }
 
+/** No celular, lista e mapa dividem o mesmo espaço; no desktop (lg) aparecem lado a lado. */
+type MobileView = "lista" | "mapa";
+
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterType>(null);
+  const [sortBy, setSortBy] = useState<HighlightKind>("mais-perto");
+  const [mobileView, setMobileView] = useState<MobileView>("lista");
   const [tipoCombustivel, setTipoCombustivel] = useState(loadFuelType);
   const [result, setResult] = useState<{ key: string; stations: GasStation[]; error: string | null } | null>(
     null,
@@ -88,31 +96,38 @@ export default function App() {
         )
       : [...gasStations];
 
-    if (activeFilter === "mais-barato") {
+    if (sortBy === "mais-barato") {
       stations.sort((a, b) => a.price - b.price);
-    } else if (activeFilter === "mais-perto") {
+    } else if (sortBy === "mais-perto") {
       stations.sort(compareByDistance);
-    } else if (activeFilter === "melhor-custo") {
+    } else {
       stations.sort((a, b) => costScore(a) - costScore(b));
     }
 
     return withHighlights(stations);
-  }, [gasStations, searchTerm, activeFilter]);
+  }, [gasStations, searchTerm, sortBy]);
+
+  const municipio = regiao?.municipio ? titleCase(regiao.municipio) : null;
+  const ondeLabel = isFallback
+    ? "Perto do centro de Maceió"
+    : municipio
+      ? `Perto de você, em ${municipio}`
+      : "Perto de você";
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header theme={theme} onToggleTheme={toggleTheme} />
 
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+      <main className="flex-1 w-full container mx-auto px-4 py-6 max-w-7xl">
         {geoLoading && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-center gap-2">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-200 flex items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Solicitando sua localização...</span>
+            <span>Pedindo sua localização para mostrar os postos mais perto.</span>
           </div>
         )}
 
         {location && isFallback && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 dark:bg-yellow-950/40 dark:border-yellow-900 dark:text-yellow-200">
             <p className="font-semibold flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
               Localização não disponível
@@ -124,13 +139,6 @@ export default function App() {
           </div>
         )}
 
-        {location && !isFallback && (
-          <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Localização detectada: {formatNumber(location.latitude, 3)}°; {formatNumber(location.longitude, 3)}°
-          </div>
-        )}
-
         {location && (
           <div className="mb-6">
             <FuelSelector value={tipoCombustivel} onChange={handleFuelChange} disabled={isLoading} />
@@ -138,7 +146,7 @@ export default function App() {
         )}
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-950/40 dark:border-red-900 dark:text-red-200">
             <p className="font-semibold flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
               Erro ao carregar postos
@@ -147,16 +155,13 @@ export default function App() {
           </div>
         )}
 
-        {isLoading && !geoLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-accent" />
-            <span className="ml-3 text-muted-foreground">Carregando postos de combustível...</span>
-          </div>
-        )}
+        {isLoading && !geoLoading && <StationsSkeleton />}
 
         {!isLoading && !error && gasStations.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Nenhum posto com {COMBUSTIVEL_TIPOS[tipoCombustivel]} encontrado num raio de 15 km.</p>
+            <p className="text-muted-foreground">
+              Nenhum posto com {COMBUSTIVEL_TIPOS[tipoCombustivel]} num raio de 15 km. Escolha outro combustível acima.
+            </p>
           </div>
         )}
 
@@ -166,49 +171,79 @@ export default function App() {
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
-                  type="text"
-                  placeholder="Buscar por posto ou endereço..."
+                  type="search"
+                  placeholder="Buscar por posto ou endereço"
+                  aria-label="Buscar por posto ou endereço"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white border border-border shadow-sm focus:outline-none focus:ring-2 focus:ring-accent transition-all"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-card border border-border shadow-sm focus:outline-none focus:ring-2 focus:ring-accent transition-all"
                 />
               </div>
 
-              <Filters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+              <SortSelector value={sortBy} onChange={setSortBy} />
             </div>
 
-            <div className="flex items-center gap-2 mb-6 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>
-                {isFallback ? "Mostrando postos próximos ao centro de Maceió" : "Mostrando postos próximos a você"}
-              </span>
-              {activeFilter && (
-                <span className="text-sm px-3 py-1 rounded-full bg-gradient-to-r from-[#FFC90E] to-[#FF8200] text-white ml-2">
-                  {activeFilter === "mais-barato" && "Ordenado por preço"}
-                  {activeFilter === "mais-perto" && "Ordenado por distância"}
-                  {activeFilter === "melhor-custo" && "Ordenado por custo-benefício"}
-                </span>
-              )}
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 className="text-2xl" style={{ color: "var(--heading)" }}>
+                {visibleStations.length} {visibleStations.length === 1 ? "posto" : "postos"}
+              </h2>
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" aria-hidden />
+                {ondeLabel}
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="space-y-4">
-                <h2 className="text-xl" style={{ color: "var(--tanquei-purple)" }}>
-                  Postos Próximos ({visibleStations.length})
-                </h2>
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                  {visibleStations.map((station) => (
-                    <GasStationCard
-                      key={station.id}
-                      station={station}
-                      isSelected={selectedStation === station.id}
-                      onSelect={() => handleStationSelect(station.id)}
-                    />
-                  ))}
-                </div>
+            <div className="mb-4 grid grid-cols-2 border-b border-border lg:hidden" role="tablist" aria-label="Ver postos como">
+              {(
+                [
+                  { id: "lista", label: "Lista", icon: List },
+                  { id: "mapa", label: "Mapa", icon: MapIcon },
+                ] as const
+              ).map(({ id, label, icon: Icon }) => {
+                const active = mobileView === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls={`postos-${id}`}
+                    onClick={() => setMobileView(id)}
+                    className={`-mb-px flex items-center justify-center gap-2 border-b-2 py-3 text-sm font-medium transition-colors ${
+                      active ? "border-[#FF8200] text-heading" : "border-transparent text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+              <div
+                id="postos-lista"
+                className={`space-y-3 lg:max-h-[600px] lg:overflow-y-auto lg:pr-2 ${mobileView === "lista" ? "" : "hidden lg:block"}`}
+              >
+                {visibleStations.map((station) => (
+                  <GasStationCard
+                    key={station.id}
+                    station={station}
+                    isSelected={selectedStation === station.id}
+                    onSelect={() => handleStationSelect(station.id)}
+                  />
+                ))}
+                {visibleStations.length === 0 && (
+                  <p className="py-8 text-center text-muted-foreground">
+                    Nenhum posto encontrado para “{searchTerm.trim()}”. Tente outro nome ou bairro.
+                  </p>
+                )}
               </div>
 
-              <div className="lg:sticky lg:top-32 h-[600px]">
+              <div
+                id="postos-mapa"
+                className={`h-[70vh] min-h-[420px] lg:h-[600px] lg:sticky lg:top-28 ${mobileView === "mapa" ? "" : "hidden lg:block"}`}
+              >
                 <Suspense fallback={<BlockPlaceholder label="Carregando mapa..." className="h-full" />}>
                   <MapView
                     stations={visibleStations}
@@ -221,7 +256,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mb-8">
+            <div className="mb-12">
               <Calculators />
             </div>
 
@@ -239,6 +274,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }
