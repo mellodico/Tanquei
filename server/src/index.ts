@@ -32,6 +32,10 @@ const HISTORY_MUNICIPIOS = (process.env.HISTORY_MUNICIPIOS ?? "2704302") // Mace
   .filter((n) => Number.isInteger(n) && n > 0);
 const HISTORY_INTERVAL_HOURS = Number(process.env.HISTORY_INTERVAL_HOURS ?? 6);
 const TIPOS_COMBUSTIVEL = [1, 2, 3, 4, 5, 6];
+// A SEFAZ publica as vendas com atraso (às vezes mais de um dia); com dias: 1 a coleta pode
+// voltar vazia. As linhas são agrupadas pela data da venda e o upsert não regride preços,
+// então uma janela maior é segura.
+const HISTORY_DIAS = 3;
 const CACHE_TTL_MINUTES = Number(process.env.CACHE_TTL_MINUTES ?? 10);
 // Atrás de um proxy reverso, sem isso todos os usuários teriam o IP do proxy e dividiriam o rate limit.
 const TRUST_PROXY = parseTrustProxy(process.env.TRUST_PROXY);
@@ -167,7 +171,7 @@ async function collectHistory() {
           const data = await economiza.pesquisarCombustiveis({
             tipoCombustivel,
             estabelecimento: { municipio: { codigoIBGE } },
-            dias: 1,
+            dias: HISTORY_DIAS,
           });
           const n = await history.record(tipoCombustivel, data.conteudo);
           log(`Histórico: IBGE ${codigoIBGE}, tipo ${tipoCombustivel}: ${n} preços`);
