@@ -40,7 +40,14 @@ export function createEconomizaClient({ baseUrl, token, log }: EconomizaConfig) 
       headers: { "Content-Type": "application/json", AppToken: token },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
+      // Seguir 301/302 faz o fetch trocar POST por GET (a API responde 405); falhar com mensagem clara.
+      redirect: "manual",
     });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      console.error(`Upstream ${path} redirecionou (${res.status}) para ${location}; ajuste ECONOMIZA_BASE_URL`);
+      throw new UpstreamError(`HTTP ${res.status}`);
+    }
     const text = await res.text();
     log(`POST ${path} -> ${res.status} (${Date.now() - started}ms)`);
 

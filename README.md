@@ -17,7 +17,7 @@ Copie `server/.env.example` para `server/.env` e preencha:
 
 ```env
 ECONOMIZA_APP_TOKEN=seu_token_aqui
-ECONOMIZA_BASE_URL=http://api.sefaz.al.gov.br/sfz-economiza-alagoas-api/api/public
+ECONOMIZA_BASE_URL=https://api.sefaz.al.gov.br/sfz-economiza-alagoas-api/api/public
 PORT=3333
 NODE_ENV=development
 CORS_ORIGINS=http://localhost:5173
